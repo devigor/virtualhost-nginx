@@ -1,0 +1,86 @@
+#!/bin/bash
+
+# Colors
+IRed='\e[0;91m';
+BWhi='\e[1;37m';
+BBlu='\e[1;34m';
+
+# Variáveis
+VHOST=$1
+DIR=$2
+
+if [ $USER != 'root' ]
+    then
+        echo -e "
+                ${IRed}Esse script funciona apenas como root ou sudo.
+        "
+        exit 1;
+elif [ -z $VHOST ] && [ -z $DIR ]; then
+	echo -e "${IRed}[!] ARGUMENTOS INVÁLIDOS"
+else
+    # Banner
+    echo """
+                                                                                 
+██╗   ██╗██╗  ██╗ ██████╗ ███████╗████████╗███╗   ██╗ ██████╗ ██╗███╗   ██╗██╗  ██╗
+██║   ██║██║  ██║██╔═══██╗██╔════╝╚══██╔══╝████╗  ██║██╔════╝ ██║████╗  ██║╚██╗██╔╝
+██║   ██║███████║██║   ██║███████╗   ██║   ██╔██╗ ██║██║  ███╗██║██╔██╗ ██║ ╚███╔╝ 
+╚██╗ ██╔╝██╔══██║██║   ██║╚════██║   ██║   ██║╚██╗██║██║   ██║██║██║╚██╗██║ ██╔██╗ 
+ ╚████╔╝ ██║  ██║╚██████╔╝███████║   ██║   ██║ ╚████║╚██████╔╝██║██║ ╚████║██╔╝ ██╗
+  ╚═══╝  ╚═╝  ╚═╝ ╚═════╝ ╚══════╝   ╚═╝   ╚═╝  ╚═══╝ ╚═════╝ ╚═╝╚═╝  ╚═══╝╚═╝  ╚═╝                                                                                 
+
+"""
+    # Inicio do Programa
+    echo -e "${BWhi}[!] REGISTRANDO NO ARQUIVO DE HOST"
+    echo "127.0.0.1     $VHOST" >> /etc/hosts
+    # Verificando o diretório
+    if [ -d "$DIR" ]; then
+        # Criando o arquivo .conf
+        echo -e "${BWhi}[*]CRIANDO O ARQUIVO"
+		echo -e "${BBlu}.conf"
+        echo "
+		server {
+			listen   80;
+			root $DIR;
+			index index.php index.html index.htm;
+			server_name $VHOST;
+			# serve static files directly
+			location ~* \.(jpg|jpeg|gif|css|png|js|ico|html)$ {
+				access_log off;
+				expires max;
+			}
+			# removes trailing slashes (prevents SEO duplicate content issues)
+			if (!-d \$request_filename) {
+				rewrite ^/(.+)/\$ /\$1 permanent;
+			}
+			# unless the request is for a valid file (image, js, css, etc.), send to bootstrap
+			if (!-e \$request_filename) {
+				rewrite ^/(.*)\$ /index.php?/\$1 last;
+				break;
+			}
+			# removes trailing 'index' from all controllers
+			if (\$request_uri ~* index/?\$) {
+				rewrite ^/(.*)/index/?\$ /\$1 permanent;
+			}
+			# catch all
+			error_page 404 /index.php;
+			location ~ \.php$ {
+				fastcgi_split_path_info ^(.+\.php)(/.+)\$;
+				fastcgi_pass 127.0.0.1:9000;
+				fastcgi_index index.php;
+				include fastcgi_params;
+			}
+			location ~ /\.ht {
+				deny all;
+			}
+		}
+        " >> /etc/nginx/sites-available/$VHOST.conf
+        # Criando link simbolico
+        echo -e "${BWhi}[*] CRIANDO O LINK SIMBÓLICO"
+        ln -s /etc/nginx/sites-available/$VHOST.conf /etc/nginx/sites-enabled/$VHOST.conf
+        # Reiniciando o Nginx
+        echo -e "${BWhi}[*] REINICIANDO O NGINX"
+        sudo systemctl restart nginx.service
+    else
+        echo -e "${IRed}[!]DIRETÓRIO NÃO ENCONTRADO"
+    fi
+fi
