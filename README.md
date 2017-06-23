@@ -1,4 +1,4 @@
-# VHostNgin
+# VHostNginx
 
 #### Install
 > git clone https://github.com/devigor/virtualhost-nginx && cd virtualhost-nginx
